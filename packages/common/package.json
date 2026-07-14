@@ -1,0 +1,33 @@
+{
+  "name": "@repo/common",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/types.js",
+  "types": "./dist/types.d.ts",
+  "exports": {
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "default": "./dist/types.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "check-types": "tsc --noEmit",
+    "clean": "rimraf dist"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "rimraf": "^6.0.1",
+    "typescript": "5.5.4"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Validation schemas and types shared between the apps",
+  "dependencies": {
+    "zod": "^3.25.76"
+  }
+}

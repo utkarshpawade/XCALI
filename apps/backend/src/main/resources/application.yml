@@ -1,0 +1,63 @@
+# Every setting comes from an environment variable (or apps/backend/.env) with
+# the same name the Node backends used, so deployment configs carry over.
+#
+#   DATABASE_URL    postgresql://user:pass@host:5432/db?sslmode=require
+#   JWT_SECRET      at least 32 bytes; required with the prod profile
+#   JWT_EXPIRES_IN  token lifetime: 7d, 12h, 30m ...
+#   PORT            HTTP and WebSocket port
+#   ALLOWED_ORIGINS comma separated browser origins, or * for any
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:}
+    expires-in: ${JWT_EXPIRES_IN:7d}
+  allowed-origins: ${ALLOWED_ORIGINS:*}
+
+server:
+  port: ${PORT:3001}
+  shutdown: graceful
+
+spring:
+  application:
+    name: draw-backend
+  threads:
+    virtual:
+      enabled: true
+  lifecycle:
+    # Same budget the Node servers gave in-flight requests on SIGTERM.
+    timeout-per-shutdown-phase: 10s
+
+  # Local docker-compose defaults. DATABASE_URL, when set, replaces these.
+  datasource:
+    url: jdbc:postgresql://localhost:5432/excalidraw
+    username: postgres
+    password: postgres
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema; Hibernate only checks the mapping against it.
+      ddl-auto: validate
+      naming:
+        # Prisma created quoted PascalCase tables ("User") and camelCase
+        # columns ("createdAt"); use the Java names verbatim and quote them.
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    properties:
+      hibernate:
+        globally_quoted_identifiers: true
+
+  flyway:
+    # A database Prisma already migrated has the tables but no Flyway history:
+    # record it as version 1 instead of trying to create them again.
+    baseline-on-migrate: true
+    baseline-version: 1
+
+  autoconfigure:
+    # Auth is JWT only; skip the generated in-memory user and its log line.
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+
+logging:
+  level:
+    # Duplicate emails and room names are expected and answered with a 409;
+    # other SQL errors are logged with their cause by the handlers.
+    org.hibernate.orm.jdbc.error: off

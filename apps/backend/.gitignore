@@ -1,0 +1,17 @@
+target/
+.mvn/wrapper/maven-wrapper.jar
+.env
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### Eclipse / VS Code Java ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+bin/

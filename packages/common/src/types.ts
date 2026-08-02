@@ -29,3 +29,26 @@ export const CreateRoomSchema = z.object({
 export type CreateUserInput = z.infer<typeof CreateUserSchema>;
 export type SigninInput = z.infer<typeof SigninSchema>;
 export type CreateRoomInput = z.infer<typeof CreateRoomSchema>;
+
+/* -------------------------------------------------------------------------- */
+/*                             WebSocket messages                             */
+/* -------------------------------------------------------------------------- */
+
+/** Messages sent from the browser to the WebSocket server. */
+export const ClientMessageSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("join_room"),
+    roomId: z.union([z.string(), z.number()]),
+  }),
+  z.object({
+    type: z.literal("leave_room"),
+    roomId: z.union([z.string(), z.number()]),
+  }),
+  z.object({
+    type: z.literal("chat"),
+    roomId: z.union([z.string(), z.number()]),
+    message: z.string().max(200_000),
+  }),
+]);
+
+export type ClientMessage = z.infer<typeof ClientMessageSchema>;

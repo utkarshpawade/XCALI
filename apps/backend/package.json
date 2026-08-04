@@ -1,0 +1,13 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Spring Boot REST API and WebSocket server. These scripts only wrap Maven so `pnpm dev` and `pnpm build` at the root include it; a JDK 21 is required.",
+  "scripts": {
+    "dev": "node scripts/mvnw.mjs -B spring-boot:run",
+    "build": "node scripts/mvnw.mjs -B -q -DskipTests package",
+    "test": "node scripts/mvnw.mjs -B test",
+    "start": "java -jar target/backend-1.0.0.jar",
+    "clean": "node scripts/mvnw.mjs -B -q clean"
+  }
+}

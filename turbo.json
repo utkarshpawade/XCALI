@@ -6,6 +6,11 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "env": [
+        "NEXT_PUBLIC_HTTP_BACKEND",
+        "NEXT_PUBLIC_WS_URL",
+        "BUILD_STANDALONE"
+      ],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "lint": {

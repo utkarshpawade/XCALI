@@ -1,0 +1,8 @@
+# Shell scripts run inside Linux containers. A Windows checkout with
+# core.autocrlf=true would give them CRLF endings, and `sh` then fails with a
+# `\r`-flavoured "not found" (exit 127) that is genuinely hard to read.
+*.sh text eol=lf
+
+# Same reasoning: these are consumed by the Linux build.
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf

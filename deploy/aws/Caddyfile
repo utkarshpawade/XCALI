@@ -1,0 +1,46 @@
+{
+	# Caddy now terminates TLS itself instead of sitting behind CloudFront, so
+	# automatic HTTPS is left on: it provisions and renews a Let's Encrypt
+	# certificate for the site address below over the HTTP-01 challenge, which
+	# is why port 80 has to stay reachable from anywhere. Certificates persist
+	# in the caddy-data volume, so a container restart does not re-issue them.
+	admin off
+}
+
+# Supplied via the container environment (see docker-compose.prod.yml). Let's
+# Encrypt refuses to issue for *.compute.amazonaws.com, so the EC2 hostname
+# cannot be used here; sslip.io resolves any a-b-c-d.sslip.io to that IP.
+{$PUBLIC_DOMAIN} {
+	# Liveness probe for the box itself, independent of the apps.
+	handle /_health {
+		respond "ok" 200
+	}
+
+	# The REST API mounts its routes at the root (/signup, /room, /chats/:id),
+	# so the /api prefix that keeps this on one domain has to come back off.
+	handle /api/* {
+		uri strip_prefix /api
+		reverse_proxy backend:3001
+	}
+
+	# Kept so existing probes of /ws/health keep working; the backend serves
+	# health at /health. Caddy orders `handle` blocks by matcher specificity,
+	# so this wins over the /ws* block below.
+	handle /ws/health {
+		uri strip_prefix /ws
+		reverse_proxy backend:3001
+	}
+
+	# reverse_proxy passes HTTP/1.1 Upgrade through untouched, so WebSocket
+	# connections need no extra configuration here. The upgrade arrives as
+	# /ws?token=..., which is exactly the backend's socket endpoint, so the
+	# prefix stays on.
+	handle /ws* {
+		reverse_proxy backend:3001
+	}
+
+	# Everything else is the Next.js app.
+	handle {
+		reverse_proxy frontend:3000
+	}
+}

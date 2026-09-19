@@ -36,3 +36,7 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+
+# AWS deployment state: contains the database password and JWT secret.
+deploy/aws/.state.env
+deploy/aws/cf-config.json

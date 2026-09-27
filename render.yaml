@@ -1,55 +1,55 @@
-# Render Blueprint - the backend and its Postgres database.
-# The frontend goes to Vercel; see "Deployment" in the README.
+# Render Blueprint - the backend, in its own Render project. The database is
+# an external PostgreSQL (Neon, Supabase, ...) and the frontend goes to
+# Vercel; see "Deployment" in the README.
 #
 #   Render Dashboard -> New -> Blueprint -> pick this repo -> Apply.
 #
-# One value is asked for at apply time (marked `sync: false` because it is not
-# knowable until the other half of the stack exists):
+# Two values are asked for at apply time (marked `sync: false` so secrets and
+# URLs stay out of git):
 #
+#   DATABASE_URL     postgresql://user:pass@host/db?sslmode=require
 #   ALLOWED_ORIGINS  the Vercel URL, e.g. https://your-app.vercel.app
 
-# Every resource sits in the same region so the service reaches the database
-# over the private network. Singapore is Render's closest region to India.
-databases:
-  - name: excalidraw-db
-    databaseName: excalidraw
-    user: excalidraw
-    plan: free
-    region: singapore
-    postgresMajorVersion: "16"
-    # The service reaches the database over Render's private network, so no
-    # public ingress is needed. Add your own IP here if you want psql access
-    # from your laptop.
-    ipAllowList: []
-
-services:
-  # Spring Boot: REST API (auth, rooms, shape history) and the WebSocket server
-  # that broadcasts and persists shapes, on one port. Flyway applies pending
-  # migrations on startup, before the port opens.
-  #
-  # Keep this at one instance: socket connections live in memory, so a second
-  # instance would split rooms in half.
-  - type: web
-    name: excalidraw-backend
-    runtime: docker
-    plan: free
-    region: singapore
-    dockerfilePath: ./apps/backend/Dockerfile
-    # The backend is self-contained; it does not need the pnpm workspace.
-    dockerContext: ./apps/backend
-    healthCheckPath: /health
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: excalidraw-db
-          property: connectionString
-      # Generated once. At least 32 bytes, which Render's generated values are.
-      - key: JWT_SECRET
-        generateValue: true
-      - key: JWT_EXPIRES_IN
-        value: 7d
-      # Comma separated. Set this to your Vercel URL - a wrong value here is
-      # the usual cause of CORS failures in the browser, and it also gates the
-      # WebSocket handshake.
-      - key: ALLOWED_ORIGINS
-        sync: false
+projects:
+  - name: xcali
+    environments:
+      - name: production
+        services:
+          # Spring Boot: REST API (auth, rooms, shape history) and the
+          # WebSocket server that broadcasts and persists shapes, on one port.
+          # Flyway applies pending migrations on startup, before the port opens.
+          #
+          # Keep this at one instance: socket connections live in memory, so a
+          # second instance would split rooms in half.
+          - type: web
+            name: xcali-backend
+            runtime: docker
+            plan: free
+            # Every shape is a database write, so keep this close to the
+            # database's region. Singapore is Render's closest region to India.
+            region: singapore
+            dockerfilePath: ./apps/backend/Dockerfile
+            # The backend is self-contained; it does not need the pnpm workspace.
+            dockerContext: ./apps/backend
+            healthCheckPath: /health
+            # Only rebuild when the backend changes, not on frontend commits.
+            buildFilter:
+              paths:
+                - apps/backend/**
+                - render.yaml
+            envVars:
+              # The libpq / Prisma form most hosts hand out; the backend
+              # translates it to JDBC.
+              - key: DATABASE_URL
+                sync: false
+              # Generated once. At least 32 bytes, which Render's generated
+              # values are.
+              - key: JWT_SECRET
+                generateValue: true
+              - key: JWT_EXPIRES_IN
+                value: 7d
+              # Comma separated. Set this to your Vercel URL - a wrong value
+              # here is the usual cause of CORS failures in the browser, and it
+              # also gates the WebSocket handshake.
+              - key: ALLOWED_ORIGINS
+                sync: false

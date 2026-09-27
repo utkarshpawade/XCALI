@@ -48,7 +48,7 @@ The repository holds a **pnpm + Turborepo monorepo** with two Next.js frontends,
 - **Shareable rooms**: boards are identified by a short name (slug) you can hand to anyone.
 - **HiDPI-aware rendering**, batched through `requestAnimationFrame`.
 - **Chat demo**: a second, minimal Next.js app that uses the same backend and protocol with plain-text messages.
-- **Deployment recipes** for Docker Compose, Render + Vercel, and AWS (EC2 + RDS + Caddy).
+- **Deployment recipes** for Docker Compose and Render + Vercel.
 
 ## Tech stack
 
@@ -62,7 +62,7 @@ The repository holds a **pnpm + Turborepo monorepo** with two Next.js frontends,
 | Database | PostgreSQL 16, schema managed by Flyway |
 | Build | pnpm 9 workspaces and Turborepo 2 for the frontends, Maven wrapper for the backend |
 | Tests | JUnit Jupiter, Spring Boot Test, embedded PostgreSQL (zonky), no Docker needed |
-| Deployment | Docker, Docker Compose, Render Blueprint, Vercel, AWS (EC2, RDS, ECR, Caddy, optional CloudFront) |
+| Deployment | Docker, Docker Compose, Render Blueprint, Vercel |
 
 ## Repository layout
 
@@ -95,7 +95,6 @@ The repository holds a **pnpm + Turborepo monorepo** with two Next.js frontends,
 │   ├── ui/                        shared React components (Button, Card, Code)
 │   ├── eslint-config/             shared ESLint flat configs
 │   └── typescript-config/         shared tsconfig bases
-├── deploy/aws/                    provisioning and deploy scripts for EC2 + RDS
 ├── docker-compose.yml             local PostgreSQL + backend
 ├── render.yaml                    Render Blueprint (backend + PostgreSQL)
 ├── turbo.json                     Turborepo task graph (frontends and packages)
@@ -961,6 +960,42 @@ Backend, run from `apps/backend` (`mvnw.cmd` instead of `./mvnw` on Windows):
 
 ---
 
+## Deployment
+
+The backend runs on **Render**, the whiteboard on **Vercel**, and the data in an external PostgreSQL database (Neon, Supabase or any other host). Each app needs the other's URL: the frontend inlines the backend URL at build time, and the backend only accepts requests and sockets from the frontend's origin. So deploy Render first, then Vercel, then point Render back at Vercel.
+
+### 1. Backend on Render
+
+[`render.yaml`](render.yaml) is a Blueprint that creates a Render project named `xcali` containing the Spring Boot service (`xcali-backend`), on the free plan in Singapore. Pick the region closest to the database, since every shape is a database write.
+
+1. Render Dashboard → **New** → **Blueprint**, pick this repository and apply it.
+2. When asked for `DATABASE_URL`, paste the database's connection string, for example `postgresql://user:pass@host/db?sslmode=require`.
+3. When asked for `ALLOWED_ORIGINS`, enter the URL the frontend will have, for example `https://xcali.vercel.app`. It can be corrected in step 3.
+
+`JWT_SECRET` is generated. Flyway creates the schema on first start. Once the deploy is live, `https://<service>.onrender.com/health` answers.
+
+### 2. Whiteboard on Vercel
+
+1. Vercel → **Add New** → **Project**, import this repository.
+2. Set **Root Directory** to `apps/excelidraw-frontend`. [`vercel.json`](apps/excelidraw-frontend/vercel.json) installs from the workspace root and builds through Turborepo, so the other settings stay at their defaults.
+3. Add these environment variables, then deploy:
+
+| Variable | Value |
+| --- | --- |
+| `NEXT_PUBLIC_HTTP_BACKEND` | `https://<service>.onrender.com` |
+| `NEXT_PUBLIC_WS_URL` | `wss://<service>.onrender.com/ws` |
+
+Both are inlined by `next build`, so changing them later needs a redeploy.
+
+### 3. Connect the two
+
+On Render, set `ALLOWED_ORIGINS` on `xcali-backend` to the Vercel production URL, with no trailing slash. Render restarts the service with the new value. Preview deployments get their own URLs; add them to the comma-separated list if they need to reach the API.
+
+### Free-tier limits
+
+- The free Render service **spins down after 15 minutes** without traffic, and the next request waits about a minute while it starts again.
+
+---
 
 ## Design notes and limitations
 

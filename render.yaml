@@ -26,8 +26,9 @@ projects:
             runtime: docker
             plan: free
             # Every shape is a database write, so keep this close to the
-            # database's region. Singapore is Render's closest region to India.
-            region: singapore
+            # database's region. The Neon database is in AWS us-east-2, which
+            # is Render's Ohio region.
+            region: ohio
             dockerfilePath: ./apps/backend/Dockerfile
             # The backend is self-contained; it does not need the pnpm workspace.
             dockerContext: ./apps/backend

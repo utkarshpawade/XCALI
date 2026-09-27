@@ -966,7 +966,7 @@ The backend runs on **Render**, the whiteboard on **Vercel**, and the data in an
 
 ### 1. Backend on Render
 
-[`render.yaml`](render.yaml) is a Blueprint that creates a Render project named `xcali` containing the Spring Boot service (`xcali-backend`), on the free plan in Singapore. Pick the region closest to the database, since every shape is a database write.
+[`render.yaml`](render.yaml) is a Blueprint that creates a Render project named `xcali` containing the Spring Boot service (`xcali-backend`), on the free plan in Ohio, next to a Neon database in AWS us-east-2. Pick the region closest to your database, since every shape is a database write.
 
 1. Render Dashboard → **New** → **Blueprint**, pick this repository and apply it.
 2. When asked for `DATABASE_URL`, paste the database's connection string, for example `postgresql://user:pass@host/db?sslmode=require`.

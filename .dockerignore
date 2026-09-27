@@ -14,3 +14,5 @@ node_modules
 .vscode
 README.md
 legacy
+# A standalone Maven project with its own build context (apps/backend).
+apps/backend

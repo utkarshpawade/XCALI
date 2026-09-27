@@ -26,7 +26,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "Validation schemas and types shared between the apps",
+  "description": "Canvas shape schemas and types used by the drawing app",
   "dependencies": {
     "zod": "^3.25.76"
   }

@@ -2,7 +2,7 @@
 
 A real-time, multiplayer whiteboard in the spirit of Excalidraw. Sign up, create a board, share its name, and everyone in the room sees each other's shapes appear live. Every shape is saved, so a board looks the same when you come back to it.
 
-The repository is a **pnpm + Turborepo monorepo** with two Next.js frontends and a **Spring Boot** backend that serves both the REST API and the WebSocket server from one process on one port.
+The repository holds a **pnpm + Turborepo monorepo** with two Next.js frontends, and a **Spring Boot** backend, a standalone Maven project, that serves both the REST API and the WebSocket server from one process on one port.
 
 ---
 
@@ -56,11 +56,11 @@ The repository is a **pnpm + Turborepo monorepo** with two Next.js frontends and
 | --- | --- |
 | Frontend | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 3, lucide-react, axios |
 | Canvas | HTML5 Canvas 2D API with a custom engine ([`draw/Game.ts`](apps/excelidraw-frontend/draw/Game.ts)) |
-| Shared validation | zod schemas in [`@repo/common`](packages/common/src/types.ts) |
+| Shape validation | zod schemas in [`@repo/common`](packages/common/src/types.ts) |
 | Backend | Spring Boot 4.1 on Java 21 (virtual threads): Spring MVC, Spring WebSocket, Spring Security, Spring Data JPA / Hibernate |
 | Auth | HS256 JWTs (Nimbus, via `spring-security-oauth2-jose`), BCrypt password hashes (cost 10) |
 | Database | PostgreSQL 16, schema managed by Flyway |
-| Build | pnpm 9 workspaces, Turborepo 2, Maven wrapper |
+| Build | pnpm 9 workspaces and Turborepo 2 for the frontends, Maven wrapper for the backend |
 | Tests | JUnit Jupiter, Spring Boot Test, embedded PostgreSQL (zonky), no Docker needed |
 | Deployment | Docker, Docker Compose, Render Blueprint, Vercel, AWS (EC2, RDS, ECR, Caddy, optional CloudFront) |
 
@@ -69,7 +69,7 @@ The repository is a **pnpm + Turborepo monorepo** with two Next.js frontends and
 ```text
 .
 ├── apps/
-│   ├── backend/                   Spring Boot REST + WebSocket server (Java 21, Maven)
+│   ├── backend/                   Spring Boot REST + WebSocket server (Java 21, standalone Maven project)
 │   │   ├── src/main/java/com/drawapp/backend/
 │   │   │   ├── auth/              signup/signin, JWT issue/verify, security filter
 │   │   │   ├── chat/              Chat entity (one row per shape), history endpoint
@@ -80,7 +80,7 @@ The repository is a **pnpm + Turborepo monorepo** with two Next.js frontends and
 │   │   │   └── common/            error model and JSON error handler
 │   │   ├── src/main/resources/    application.yml, Flyway migrations
 │   │   ├── src/test/              integration and unit tests
-│   │   ├── scripts/mvnw.mjs       cross-platform Maven launcher used by pnpm/turbo
+│   │   ├── mvnw, mvnw.cmd         Maven wrapper
 │   │   └── Dockerfile
 │   ├── excelidraw-frontend/       the whiteboard (Next.js 15)
 │   │   ├── app/                   routes: /, /signin, /signup, /rooms, /canvas/[roomId]
@@ -91,15 +91,15 @@ The repository is a **pnpm + Turborepo monorepo** with two Next.js frontends and
 │   │   └── vercel.json
 │   └── web/                       minimal chat-room client (Next.js 15)
 ├── packages/
-│   ├── common/                    zod schemas and TypeScript types (shapes, socket frames, forms)
+│   ├── common/                    zod schemas and TypeScript types for canvas shapes
 │   ├── ui/                        shared React components (Button, Card, Code)
 │   ├── eslint-config/             shared ESLint flat configs
 │   └── typescript-config/         shared tsconfig bases
 ├── deploy/aws/                    provisioning and deploy scripts for EC2 + RDS
 ├── docker-compose.yml             local PostgreSQL + backend
 ├── render.yaml                    Render Blueprint (backend + PostgreSQL)
-├── turbo.json                     Turborepo task graph
-└── pnpm-workspace.yaml
+├── turbo.json                     Turborepo task graph (frontends and packages)
+└── pnpm-workspace.yaml            pnpm workspace (the backend is not part of it)
 ```
 
 ---
@@ -146,8 +146,7 @@ flowchart LR
 flowchart TD
     fe["apps/excelidraw-frontend"]
     web["apps/web"]
-    be["apps/backend<br/>(Maven project, wrapped by package.json)"]
-    common["@repo/common<br/>zod schemas + types"]
+    common["@repo/common<br/>shape schemas + types"]
     ui["@repo/ui<br/>Button · Card · Code"]
     eslint["@repo/eslint-config"]
     tsconfig["@repo/typescript-config"]
@@ -162,7 +161,7 @@ flowchart TD
     ui --> tsconfig
 ```
 
-Turborepo runs `build` and `dev` with `dependsOn: ["^build"]`, so `@repo/common` is compiled to `dist/` before any app that imports it. `@repo/ui` ships TypeScript source and needs no build step. The backend joins the workspace only through [`apps/backend/package.json`](apps/backend/package.json), whose scripts call the Maven wrapper through [`scripts/mvnw.mjs`](apps/backend/scripts/mvnw.mjs) so that `pnpm dev` and `pnpm build` work the same on Windows, macOS and Linux.
+Turborepo runs `build` and `dev` with `dependsOn: ["^build"]`, so `@repo/common` is compiled to `dist/` before any app that imports it. `@repo/ui` ships TypeScript source and needs no build step. The backend is not in the workspace: `apps/backend` has no `package.json`, so pnpm and Turborepo skip it, and it is built and run with its own Maven wrapper.
 
 ### Life of a shape
 
@@ -518,7 +517,7 @@ erDiagram
 
 ### Configuration
 
-Every setting comes from an environment variable. When the backend is started from `apps/backend` (`pnpm dev` or `./mvnw spring-boot:run`), an `apps/backend/.env` file is loaded as well; see [`.env.example`](apps/backend/.env.example).
+Every setting comes from an environment variable. When the backend is started from `apps/backend` (`./mvnw spring-boot:run`), an `apps/backend/.env` file is loaded as well; see [`.env.example`](apps/backend/.env.example).
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -699,9 +698,7 @@ Imported as `@repo/common/types`. Compiled with `tsc` to `dist/`, which Turborep
 
 | Export | Used for |
 | --- | --- |
-| `CreateUserSchema`, `SigninSchema`, `CreateRoomSchema` | Form rules. The backend mirrors them in Bean Validation with identical messages. |
 | `PointSchema`, `ShapeSchema`, `Point`, `Shape` | The shape model drawn, sent and replayed by the canvas. |
-| `ClientMessageSchema`, `ClientMessage` | The frames a browser may send over the socket; mirrored by the backend's `ClientMessage.from`. |
 
 ```mermaid
 classDiagram
@@ -903,11 +900,18 @@ The defaults point at the compose database and at `localhost:3001`. `JWT_SECRET`
 
 ### 4. Run everything
 
+The backend and the frontends start separately. In one terminal, start the backend:
+
+```bash
+cd apps/backend
+./mvnw spring-boot:run        # mvnw.cmd spring-boot:run on Windows
+```
+
+In a second terminal, from the repository root, start the frontends. Turborepo builds `@repo/common` first:
+
 ```bash
 pnpm dev
 ```
-
-Turborepo builds `@repo/common`, then starts all three apps:
 
 | App | URL |
 | --- | --- |
@@ -935,44 +939,28 @@ pnpm dev --filter excelidraw-frontend
 
 ## Scripts
 
-Run from the repository root:
+Frontends and shared packages, run from the repository root:
 
 | Command | What it does |
 | --- | --- |
-| `pnpm dev` | Starts every app in watch mode (backend via `spring-boot:run`). |
-| `pnpm build` | Builds everything: the Next.js apps, `@repo/common`, and the backend jar at `apps/backend/target/backend-1.0.0.jar`. |
+| `pnpm dev` | Starts both Next.js apps in watch mode. |
+| `pnpm build` | Builds the Next.js apps and `@repo/common`. |
 | `pnpm lint` | Lints every package. |
 | `pnpm check-types` | Runs `tsc --noEmit` across the TypeScript packages. |
-| `pnpm test:backend` | Runs the backend test suite through Maven. |
 | `pnpm format` | Formats `ts`, `tsx` and `md` files with Prettier. |
 | `pnpm clean` | Removes build output. |
 
-Inside `apps/backend` the Maven wrapper works directly: `./mvnw spring-boot:run`, `./mvnw test`, `./mvnw package` (`mvnw.cmd` on Windows).
+Backend, run from `apps/backend` (`mvnw.cmd` instead of `./mvnw` on Windows):
 
----
-
-## Testing
-
-```bash
-pnpm test:backend
-```
-
-The integration tests start the whole application on a random port against a real PostgreSQL 16, provided by embedded Postgres binaries that Maven downloads, so **no Docker is needed**. Surefire runs from `target/`, so a developer's `.env` and its real `DATABASE_URL` are never picked up.
-
-| Test class | Covers |
+| Command | What it does |
 | --- | --- |
-| `RestApiTests` | Sign-up and sign-in, validation messages and their order, rooms, history, 401 reasons, CORS, unknown routes. |
-| `CanvasSocketTests` | Join and leave, relaying to other members only, persistence order, large pencil strokes in fragmented frames, oversized frames, posting before joining, error replies, heartbeats. |
-| `PrismaDatabaseTests` | Starting on a database created by the earlier Node/Prisma backend: Flyway baseline, `bcryptjs` hashes, tokens issued by `jsonwebtoken`, existing rows. |
-| `JwtServiceTests` | Token format, wrong secret, expiry, missing `userId`, secret requirements. |
-| `DatabaseUrlTests` | Translating local, Neon and Render URLs, encoded credentials, Prisma-only parameters. |
-| `EnvironmentSetupTests` | `.env` parsing and precedence. |
-| `ClientMessageTests` | Socket frame parsing and numeric room ids. |
-
-The frontends have no automated tests yet; `pnpm lint` and `pnpm check-types` are the checks there.
-
+| `./mvnw spring-boot:run` | Starts the backend on port 3001. |
+| `./mvnw test` | Runs the backend test suite against an embedded PostgreSQL; no Docker needed. |
+| `./mvnw package` | Builds `target/backend-1.0.0.jar`, which runs with `java -jar target/backend-1.0.0.jar`. |
+| `./mvnw clean` | Removes `target/`. |
 
 ---
+
 
 ## Design notes and limitations
 
